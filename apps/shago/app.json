@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "SHAGO",
+    "slug": "shago",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f3460"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cybernet.shago",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SHAGO needs location for order delivery tracking.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SHAGO needs background location for active jobs.",
+        "NSCameraUsageDescription": "SHAGO needs camera to confirm deliveries."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0f3460"
+      },
+      "package": "com.cybernet.shago",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {}
+
+  }
+}

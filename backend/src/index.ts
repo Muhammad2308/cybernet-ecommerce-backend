@@ -1,0 +1,97 @@
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import formbody from '@fastify/formbody'
+import jwt from '@fastify/jwt'
+import dotenv from 'dotenv'
+
+import { ridoPlugin } from './rido'
+import { shagoPlugin } from './shago'
+import { adminRoutes } from './admin/routes'
+import { startEventBus } from './events/event-bus'
+import { registerNotificationHandlers } from './services/notification.service'
+import { startEarningsAggregator } from './rido/workers/earnings-aggregator'
+import { startWebhookRetryWorker } from './rido/workers/webhook-retry'
+import { authenticate } from './middleware/auth'
+
+dotenv.config()
+
+const server = Fastify({ logger: true })
+
+// ─── Plugins ────────────────────────────────────────────────
+server.register(cors, {
+  origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:3001'],
+  credentials: true,
+})
+server.register(formbody)
+server.register(jwt, {
+  secret: process.env.JWT_SECRET ?? 'change-me-in-production',
+})
+server.decorate('authenticate', authenticate)
+
+// ─── Route namespaces ───────────────────────────────────────
+server.register(ridoPlugin,   { prefix: '/api/rido/v1' })
+server.register(shagoPlugin,  { prefix: '/api/shago/v1' })
+server.register(adminRoutes,  { prefix: '/api/admin/v1' })
+
+// SHAGO internal service-to-service API (versioned separately)
+// Registered inside shagoPlugin at /internal/v1 but mounted at root
+server.register(
+  async (instance) => {
+    const { shagoInternalV1Routes } = await import('./shago/routes/internal/v1')
+    instance.register(shagoInternalV1Routes)
+  },
+  { prefix: '/internal/shago/v1' },
+)
+
+// ─── Health ─────────────────────────────────────────────────
+server.get('/health', async () => ({
+  success: true,
+  message: 'Cybernet Platform API is running',
+  version: '3.0.0',
+  timestamp: new Date().toISOString(),
+  platforms: ['rido', 'shago'],
+}))
+
+// Legacy health alias
+server.get('/api/v1/health', async () => ({
+  success: true, message: 'Cybernet Platform API is running', version: '3.0.0',
+}))
+
+// ─── Global error handler ────────────────────────────────────
+server.setErrorHandler((error, _request, reply) => {
+  const statusCode = (error as { statusCode?: number }).statusCode ?? 500
+  server.log.error(error)
+  reply.code(statusCode).send({
+    success: false,
+    error: statusCode < 500 ? error.message : 'Internal server error',
+  })
+})
+
+// ─── Boot ────────────────────────────────────────────────────
+const start = async () => {
+  try {
+    await startEventBus()
+    registerNotificationHandlers()
+    startEarningsAggregator()
+    startWebhookRetryWorker()
+
+    const port = Number(process.env.PORT) || 3000
+    await server.listen({ port, host: '0.0.0.0' })
+    console.log(`🚀 Cybernet Platform v3.0 running on port ${port}`)
+    console.log(`   RIDO API  → http://localhost:${port}/api/rido/v1`)
+    console.log(`   SHAGO API → http://localhost:${port}/api/shago/v1`)
+    console.log(`   Admin API → http://localhost:${port}/api/admin/v1`)
+    console.log(`   SHAGO internal → http://localhost:${port}/internal/shago/v1`)
+  } catch (err) {
+    server.log.error(err)
+    process.exit(1)
+  }
+}
+
+start()
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: typeof authenticate
+  }
+}

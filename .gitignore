@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# TypeScript build output
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma
+prisma/migrations/*/migration_lock.toml
+
+# Expo
+**/.expo/
+**/web-build/
+
+# Nested git metadata (not needed in master backup)
+**/.git_bak/
+**/.git/
+
+# Local config with secrets
+.claude/
+.mcp.json
+
+# Next.js
+admin/.next/
+admin/out/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+.mcp.json

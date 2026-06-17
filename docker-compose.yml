@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: rido_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: rido_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - rido_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: rido_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - rido_redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  rido_postgres_data:
+  rido_redis_data:

@@ -1,0 +1,727 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ============================================================
+// ENUMS — EXISTING
+// ============================================================
+
+enum Role {
+  // RIDO platform roles
+  SENDER
+  TRAVELER
+  LOGISTICS_ADMIN
+  // SHAGO platform roles
+  RETAILER
+  WHOLESALER
+  SALES_AGENT
+  LOGISTICS_AGENT
+  CONSUMER
+  // Shared / legacy
+  FLEET_ADMIN
+  // CYBERNET master admin
+  CYBERNET_ADMIN
+  ADMIN
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum Tier {
+  BASIC
+  VERIFIED
+  PREMIUM
+}
+
+enum VehicleType {
+  MOTORCYCLE
+  CAR
+  VAN
+  TRUCK
+  BUS
+}
+
+enum TripStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum SizeBracket {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
+}
+
+enum WeightBracket {
+  LIGHT
+  MEDIUM
+  HEAVY
+  EXTRA_HEAVY
+}
+
+enum UrgencyLevel {
+  STANDARD
+  EXPRESS
+  SAME_DAY
+}
+
+enum PackageCategory {
+  DOCUMENTS
+  ELECTRONICS
+  CLOTHING
+  FOOD
+  FRAGILE
+  GENERAL
+}
+
+enum ShipmentStatus {
+  PENDING
+  MATCHED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+  DISPUTED
+}
+
+enum DeliveryStatus {
+  PENDING_PICKUP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum EscrowStatus {
+  HOLDING
+  RELEASED
+  REFUNDED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum RoomStatus {
+  ACTIVE
+  CLOSED
+  DISPUTED
+}
+
+enum MessageType {
+  TEXT
+  SYSTEM
+  NOTIFICATION
+}
+
+enum PingTrigger {
+  AUTOMATIC
+  MANUAL
+  GEOFENCE
+}
+
+enum DisputeReason {
+  NOT_DELIVERED
+  DAMAGED
+  WRONG_ITEM
+  LATE_DELIVERY
+  FRAUD
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+// ============================================================
+// ENUMS — NEW
+// ============================================================
+
+enum PlatformType {
+  RIDO
+  SHAGO
+}
+
+enum FleetCompanyStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum FleetDriverStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum EarningStatus {
+  PENDING
+  SETTLED
+  DISPUTED
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+  IN_APP
+  WEBHOOK
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum RecipientType {
+  DRIVER
+  SENDER
+  FLEET_ADMIN
+  RIDO_ADMIN
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRY
+}
+
+enum ShagoJobStatus {
+  PENDING_ASSIGNMENT
+  ASSIGNED
+  DRIVER_AT_PICKUP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED_AT_DROPOFF
+  DELIVERED
+  FAILED
+  DISPUTED
+}
+
+// ============================================================
+// MODELS — EXISTING (preserved + extended)
+// ============================================================
+
+model User {
+  id              String        @id @default(uuid())
+  email           String        @unique
+  phone           String        @unique
+  full_name       String
+  password_hash   String
+  role            Role
+  status          AccountStatus @default(PENDING)
+  tier            Tier          @default(BASIC)
+  avatar_url      String?
+  is_verified     Boolean       @default(false)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  trips               Trip[]
+  shipments           Shipment[]
+  deliveries          Delivery[]
+  sent_messages       Message[]
+  location_pings      LocationPing[]
+  payments            Payment[]
+  disputes_filed      Dispute[]              @relation("DisputeFiler")
+  disputes_against    Dispute[]              @relation("DisputeAgainst")
+
+  // Fleet relations
+  fleet_membership    FleetDriverMembership?
+  fleet_admin_of      FleetCompanyAdmin[]
+  driver_stats        DriverStats?
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Trip {
+  id                  String      @id @default(uuid())
+  traveler_id         String
+  origin_address      String
+  origin_lat          Float
+  origin_lng          Float
+  destination_address String
+  destination_lat     Float
+  destination_lng     Float
+  vehicle_type        VehicleType
+  available_capacity  Float
+  departure_time      DateTime
+  status              TripStatus  @default(SCHEDULED)
+  notes               String?
+  created_at          DateTime    @default(now())
+  updated_at          DateTime    @updatedAt
+
+  traveler            User        @relation(fields: [traveler_id], references: [id])
+  deliveries          Delivery[]
+
+  @@map("trips")
+}
+
+model Shipment {
+  id               String          @id @default(uuid())
+  sender_id        String
+  title            String
+  description      String?
+  category         PackageCategory
+  size             SizeBracket
+  weight_bracket   WeightBracket
+  weight_kg        Float
+  urgency          UrgencyLevel    @default(STANDARD)
+  pickup_address   String
+  pickup_lat       Float
+  pickup_lng       Float
+  dropoff_address  String
+  dropoff_lat      Float
+  dropoff_lng      Float
+  receiver_name    String
+  receiver_phone   String
+  status           ShipmentStatus  @default(PENDING)
+  estimated_price  Float?
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+
+  sender           User            @relation(fields: [sender_id], references: [id])
+  delivery         Delivery?
+
+  @@map("shipments")
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  shipment_id     String         @unique
+  trip_id         String
+  traveler_id     String
+  status          DeliveryStatus @default(PENDING_PICKUP)
+  agreed_price    Float
+  pickup_code     String?
+  dropoff_code    String?
+  picked_up_at    DateTime?
+  delivered_at    DateTime?
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+
+  shipment         Shipment        @relation(fields: [shipment_id], references: [id])
+  trip             Trip            @relation(fields: [trip_id], references: [id])
+  traveler         User            @relation(fields: [traveler_id], references: [id])
+  transaction_room TransactionRoom?
+  events           DeliveryEvent[]
+  dispute          Dispute?
+  earning          DeliveryEarning?
+  shago_job        ShagoJob?
+
+  @@map("deliveries")
+}
+
+model TransactionRoom {
+  id            String       @id @default(uuid())
+  delivery_id   String       @unique
+  escrow_status EscrowStatus @default(HOLDING)
+  escrow_amount Float
+  room_status   RoomStatus   @default(ACTIVE)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @updatedAt
+
+  delivery      Delivery     @relation(fields: [delivery_id], references: [id])
+  messages      Message[]
+  payments      Payment[]
+
+  @@map("transaction_rooms")
+}
+
+model Message {
+  id         String      @id @default(uuid())
+  room_id    String
+  sender_id  String
+  content    String
+  type       MessageType @default(TEXT)
+  is_read    Boolean     @default(false)
+  created_at DateTime    @default(now())
+
+  room       TransactionRoom @relation(fields: [room_id], references: [id])
+  sender     User            @relation(fields: [sender_id], references: [id])
+
+  @@map("messages")
+}
+
+model LocationPing {
+  id          String      @id @default(uuid())
+  user_id     String
+  delivery_id String?
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  trigger     PingTrigger @default(AUTOMATIC)
+  created_at  DateTime    @default(now())
+
+  user        User        @relation(fields: [user_id], references: [id])
+
+  @@map("location_pings")
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  room_id      String
+  payer_id     String
+  amount       Float
+  fee          Float         @default(0)
+  net_amount   Float
+  currency     String        @default("NGN")
+  status       PaymentStatus @default(PENDING)
+  provider     String?
+  provider_ref String?
+  description  String?
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  room         TransactionRoom @relation(fields: [room_id], references: [id])
+  payer        User            @relation(fields: [payer_id], references: [id])
+
+  @@map("payments")
+}
+
+model DeliveryEvent {
+  id          String   @id @default(uuid())
+  delivery_id String
+  event_type  String
+  description String?
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  delivery    Delivery @relation(fields: [delivery_id], references: [id])
+
+  @@map("delivery_events")
+}
+
+model Dispute {
+  id             String        @id @default(uuid())
+  delivery_id    String        @unique
+  filed_by_id    String
+  against_id     String
+  reason         DisputeReason
+  description    String
+  evidence_urls  String[]
+  status         DisputeStatus @default(OPEN)
+  resolution     String?
+  resolved_by_id String?
+  resolved_at    DateTime?
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+
+  delivery       Delivery      @relation(fields: [delivery_id], references: [id])
+  filed_by       User          @relation("DisputeFiler", fields: [filed_by_id], references: [id])
+  against        User          @relation("DisputeAgainst", fields: [against_id], references: [id])
+
+  @@map("disputes")
+}
+
+model PricingConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       Float
+  description String
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("pricing_configs")
+}
+
+// ============================================================
+// MODELS — NEW: FLEET COMPANY
+// ============================================================
+
+model FleetCompany {
+  id                  String              @id @default(uuid())
+  company_name        String
+  registration_number String              @unique
+  contact_person      String
+  contact_email       String              @unique
+  contact_phone       String
+  address             String
+  city                String
+  country             String              @default("NG")
+  logo_url            String?
+  platform_type       PlatformType        @default(RIDO)
+  status              FleetCompanyStatus  @default(PENDING)
+  commission_rate     Float               @default(10)
+  currency            String              @default("NGN")
+  created_at          DateTime            @default(now())
+  verified_at         DateTime?
+  updated_at          DateTime            @updatedAt
+
+  admins              FleetCompanyAdmin[]
+  driver_memberships  FleetDriverMembership[]
+  invites             FleetInvite[]
+  earnings            DeliveryEarning[]
+  stats               FleetCompanyStats[]
+  webhook_endpoints   WebhookEndpoint[]
+  notification_prefs  NotificationPreference[]
+
+  @@map("fleet_companies")
+}
+
+model FleetCompanyAdmin {
+  id               String       @id @default(uuid())
+  user_id          String
+  fleet_company_id String
+  added_at         DateTime     @default(now())
+
+  user             User         @relation(fields: [user_id], references: [id])
+  fleet_company    FleetCompany @relation(fields: [fleet_company_id], references: [id])
+
+  @@unique([user_id, fleet_company_id])
+  @@map("fleet_company_admins")
+}
+
+model FleetDriverMembership {
+  id               String            @id @default(uuid())
+  driver_id        String            @unique
+  fleet_company_id String
+  driver_role      String            @default("DRIVER")
+  driver_split_rate Float            @default(80)
+  status           FleetDriverStatus @default(ACTIVE)
+  vehicle_type     VehicleType?
+  vehicle_plate    String?
+  joined_at        DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+
+  driver           User              @relation(fields: [driver_id], references: [id])
+  fleet_company    FleetCompany      @relation(fields: [fleet_company_id], references: [id])
+
+  @@map("fleet_driver_memberships")
+}
+
+model FleetInvite {
+  id               String       @id @default(uuid())
+  fleet_company_id String
+  code             String       @unique
+  created_by_id    String
+  expires_at       DateTime
+  used_at          DateTime?
+  used_by_id       String?
+  created_at       DateTime     @default(now())
+
+  fleet_company    FleetCompany @relation(fields: [fleet_company_id], references: [id])
+
+  @@map("fleet_invites")
+}
+
+// ============================================================
+// MODELS — NEW: EARNINGS & STATS
+// ============================================================
+
+model DeliveryEarning {
+  id                          String         @id @default(uuid())
+  delivery_id                 String         @unique
+  driver_id                   String
+  fleet_company_id            String?
+  gross_fee                   Float
+  rido_commission_rate_snapshot Float
+  rido_commission_amount      Float
+  driver_payout_amount        Float
+  fleet_payout_amount         Float          @default(0)
+  currency                    String         @default("NGN")
+  status                      EarningStatus  @default(PENDING)
+  settled_at                  DateTime?
+  created_at                  DateTime       @default(now())
+  updated_at                  DateTime       @updatedAt
+
+  delivery                    Delivery       @relation(fields: [delivery_id], references: [id])
+  fleet_company               FleetCompany?  @relation(fields: [fleet_company_id], references: [id])
+
+  @@map("delivery_earnings")
+}
+
+model FleetCompanyStats {
+  id                     String       @id @default(uuid())
+  fleet_company_id       String
+  stat_date              DateTime
+  total_deliveries       Int          @default(0)
+  total_gross_revenue    Float        @default(0)
+  total_rido_commission  Float        @default(0)
+  total_net_payout       Float        @default(0)
+  total_drivers_active   Int          @default(0)
+  currency               String       @default("NGN")
+  created_at             DateTime     @default(now())
+  updated_at             DateTime     @updatedAt
+
+  fleet_company          FleetCompany @relation(fields: [fleet_company_id], references: [id])
+
+  @@unique([fleet_company_id, stat_date])
+  @@map("fleet_company_stats")
+}
+
+model DriverStats {
+  id                    String   @id @default(uuid())
+  driver_id             String   @unique
+  total_deliveries      Int      @default(0)
+  total_gross_earned    Float    @default(0)
+  total_rido_commission Float    @default(0)
+  total_net_earned      Float    @default(0)
+  currency              String   @default("NGN")
+  updated_at            DateTime @updatedAt
+
+  driver                User     @relation(fields: [driver_id], references: [id])
+
+  @@map("driver_stats")
+}
+
+// ============================================================
+// MODELS — NEW: SHAGO INTEGRATION
+// ============================================================
+
+model ShagoJob {
+  id                       String         @id @default(uuid())
+  shago_order_id           String         @unique
+  rido_delivery_id         String?        @unique
+  status                   ShagoJobStatus @default(PENDING_ASSIGNMENT)
+  pickup_address           String
+  pickup_lat               Float
+  pickup_lng               Float
+  dropoff_address          String
+  dropoff_lat              Float
+  dropoff_lng              Float
+  order_number_tag         String
+  parcel_details           Json
+  declared_value           Float
+  payment_held_in_escrow   Boolean        @default(false)
+  escrow_amount            Float          @default(0)
+  requested_delivery_window DateTime?
+  assigned_driver_id       String?
+  tracking_url             String?
+  created_at               DateTime       @default(now())
+  updated_at               DateTime       @updatedAt
+
+  delivery                 Delivery?      @relation(fields: [rido_delivery_id], references: [id])
+
+  @@map("shago_jobs")
+}
+
+model ServiceApiKey {
+  id            String   @id @default(uuid())
+  name          String
+  key_hash      String   @unique
+  service_name  String
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  last_used_at  DateTime?
+
+  @@map("service_api_keys")
+}
+
+// ============================================================
+// MODELS — NEW: NOTIFICATIONS
+// ============================================================
+
+model NotificationEvent {
+  id         String   @id @default(uuid())
+  event_type String
+  source     String
+  payload    Json
+  created_at DateTime @default(now())
+
+  @@map("notification_events")
+}
+
+model Notification {
+  id             String              @id @default(uuid())
+  recipient_id   String
+  recipient_type RecipientType
+  event_type     String
+  title          String
+  body           String
+  data           Json?
+  channel        NotificationChannel
+  status         NotificationStatus  @default(PENDING)
+  read_at        DateTime?
+  created_at     DateTime            @default(now())
+
+  recipient      User                @relation(fields: [recipient_id], references: [id])
+
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id               String              @id @default(uuid())
+  user_id          String?
+  fleet_company_id String?
+  event_type       String
+  channel          NotificationChannel
+  enabled          Boolean             @default(true)
+  quiet_hours_start Int?
+  quiet_hours_end   Int?
+  created_at       DateTime            @default(now())
+  updated_at       DateTime            @updatedAt
+
+  fleet_company    FleetCompany?       @relation(fields: [fleet_company_id], references: [id])
+
+  @@unique([user_id, event_type, channel])
+  @@map("notification_preferences")
+}
+
+// ============================================================
+// MODELS — NEW: WEBHOOKS
+// ============================================================
+
+model WebhookEndpoint {
+  id               String       @id @default(uuid())
+  fleet_company_id String?
+  integration_name String
+  url              String
+  secret           String
+  events           String[]
+  is_active        Boolean      @default(true)
+  failure_count    Int          @default(0)
+  last_failure_at  DateTime?
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+
+  fleet_company    FleetCompany? @relation(fields: [fleet_company_id], references: [id])
+  delivery_logs    WebhookDeliveryLog[]
+
+  @@map("webhook_endpoints")
+}
+
+model WebhookDeliveryLog {
+  id                  String                @id @default(uuid())
+  webhook_endpoint_id String
+  event_type          String
+  payload             Json
+  response_code       Int?
+  response_body       String?
+  attempt_number      Int                   @default(1)
+  next_retry_at       DateTime?
+  status              WebhookDeliveryStatus @default(PENDING)
+  created_at          DateTime              @default(now())
+  updated_at          DateTime              @updatedAt
+
+  webhook_endpoint    WebhookEndpoint       @relation(fields: [webhook_endpoint_id], references: [id])
+
+  @@map("webhook_delivery_logs")
+}

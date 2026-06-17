@@ -1,0 +1,25 @@
+{
+  "name": "cybernet-platform",
+  "version": "3.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "apps/rido",
+    "apps/shago",
+    "apps/admin",
+    "shared"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:rido": "npm run start --workspace=@cybernet/rido-mobile",
+    "dev:shago": "npm run start --workspace=@cybernet/shago-mobile",
+    "dev:admin": "npm run dev --workspace=@cybernet/admin",
+    "build:backend": "npm run build --workspace=backend",
+    "build:admin": "npm run build --workspace=@cybernet/admin",
+    "db:migrate": "npm run prisma:migrate --workspace=backend",
+    "db:generate": "npm run prisma:generate --workspace=backend",
+    "db:studio": "npm run prisma:studio --workspace=backend",
+    "db:seed": "npm run prisma:seed --workspace=backend",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  }
+}
