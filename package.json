@@ -20,6 +20,7 @@
     "db:generate": "npm run prisma:generate --workspace=backend",
     "db:studio": "npm run prisma:studio --workspace=backend",
     "db:seed": "npm run prisma:seed --workspace=backend",
+    "postinstall": "npm run db:generate",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "dependencies": {
