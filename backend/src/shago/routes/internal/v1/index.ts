@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { requireServiceKey } from '../../../../middleware/service-key-auth'
-import { dispatchShagoJob, getShagoJobStatus, confirmShagoDelivery, fileShagoDispute } from '../../services/shago.service'
+import { dispatchShagoJob, getShagoJobStatus, confirmShagoDelivery, fileShagoDispute } from '../../../services/shago.service'
 
 const dispatchSchema = z.object({
   shago_order_id: z.string(),

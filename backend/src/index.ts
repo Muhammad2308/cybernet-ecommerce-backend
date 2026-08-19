@@ -13,6 +13,8 @@ import { startEarningsAggregator } from './rido/workers/earnings-aggregator'
 import { startWebhookRetryWorker } from './rido/workers/webhook-retry'
 import { authenticate } from './middleware/auth'
 
+import { shagoInternalV1Routes } from './shago/routes/internal/v1/index.js'
+
 dotenv.config()
 
 const server = Fastify({ logger: true })
@@ -32,16 +34,7 @@ server.decorate('authenticate', authenticate)
 server.register(ridoPlugin,   { prefix: '/api/rido/v1' })
 server.register(shagoPlugin,  { prefix: '/api/shago/v1' })
 server.register(adminRoutes,  { prefix: '/api/admin/v1' })
-
-// SHAGO internal service-to-service API (versioned separately)
-// Registered inside shagoPlugin at /internal/v1 but mounted at root
-server.register(
-  async (instance) => {
-    const { shagoInternalV1Routes } = await import('./shago/routes/internal/v1')
-    instance.register(shagoInternalV1Routes)
-  },
-  { prefix: '/internal/shago/v1' },
-)
+server.register(shagoInternalV1Routes, { prefix: '/internal/shago/v1' })
 
 // ─── Health ─────────────────────────────────────────────────
 server.get('/health', async () => ({
@@ -58,12 +51,12 @@ server.get('/api/v1/health', async () => ({
 }))
 
 // ─── Global error handler ────────────────────────────────────
-server.setErrorHandler((error, _request, reply) => {
+server.setErrorHandler((error: any, _request, reply) => {
   const statusCode = (error as { statusCode?: number }).statusCode ?? 500
   server.log.error(error)
   reply.code(statusCode).send({
     success: false,
-    error: statusCode < 500 ? error.message : 'Internal server error',
+    error: statusCode < 500 ? (error as any).message : 'Internal server error',
   })
 })
 

@@ -1,6 +1,13 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { JwtPayload } from '../lib/jwt'
 
+declare module '@fastify/jwt' {
+  interface FastifyJWT {
+    payload: JwtPayload
+    user: JwtPayload
+  }
+}
+
 declare module 'fastify' {
   interface FastifyRequest {
     user: JwtPayload

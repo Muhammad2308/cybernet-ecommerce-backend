@@ -29,7 +29,7 @@ export async function dispatchShagoJob(input: ShagoDispatchInput) {
       shago_order_id: input.shago_order_id,
       pickup_address: input.pickup_address, pickup_lat: input.pickup_lat, pickup_lng: input.pickup_lng,
       dropoff_address: input.dropoff_address, dropoff_lat: input.dropoff_lat, dropoff_lng: input.dropoff_lng,
-      parcel_details: input.parcel_details,
+      parcel_details: input.parcel_details ? (input.parcel_details as any) : {},
       order_number_tag: input.order_number_tag,
       declared_value: input.declared_value,
       payment_held_in_escrow: input.payment_held_in_escrow,
@@ -49,16 +49,22 @@ export async function getShagoJobStatus(ridoJobId: string) {
       delivery: {
         include: {
           traveler: { select: { full_name: true, phone: true } },
-          location_pings: { orderBy: { created_at: 'desc' }, take: 1 },
         },
       },
     },
   })
   if (!job) return null
+  const lastLocationPing = job.rido_delivery_id
+    ? await prisma.locationPing.findFirst({
+        where: { delivery_id: job.rido_delivery_id },
+        orderBy: { created_at: 'desc' },
+      })
+    : null
+  const delivery = (job as any).delivery
   return {
     rido_job_id: job.id, shago_order_id: job.shago_order_id, status: job.status,
-    assigned_driver: job.delivery?.traveler ? { name: job.delivery.traveler.full_name, phone: job.delivery.traveler.phone } : null,
-    last_location: job.delivery?.location_pings[0] ?? null,
+    assigned_driver: delivery?.traveler ? { name: delivery.traveler.full_name, phone: delivery.traveler.phone } : null,
+    last_location: lastLocationPing ?? null,
     tracking_url: job.tracking_url,
   }
 }

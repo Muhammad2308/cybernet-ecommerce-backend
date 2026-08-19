@@ -40,7 +40,7 @@ export async function sendNotification(n: NotificationPayload): Promise<void> {
   await Promise.all(
     channels.map(async (channel) => {
       await prisma.notification.create({
-        data: { recipient_id: n.recipient_id, recipient_type: n.recipient_type, event_type: n.event_type, title: n.title, body: n.body, data: n.data ?? {}, channel, status: NotificationStatus.PENDING },
+        data: { recipient_id: n.recipient_id, recipient_type: n.recipient_type, event_type: n.event_type, title: n.title, body: n.body, data: (n.data ? (n.data as any) : undefined), channel, status: NotificationStatus.PENDING },
       })
       await dispatchChannel(channel, n).catch((err) => console.error(`[Notification] ${channel} dispatch failed:`, err.message))
     }),

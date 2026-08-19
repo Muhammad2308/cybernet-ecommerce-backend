@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import * as SecureStore from 'expo-secure-store'
+import { storage } from '../utils/storage'
 
 export interface RidoUser {
   id: string
@@ -23,20 +23,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   token: null,
 
   setAuth: async (user, token) => {
-    await SecureStore.setItemAsync('rido_token', token)
-    await SecureStore.setItemAsync('rido_user', JSON.stringify(user))
+    await storage.setItem('rido_token', token)
+    await storage.setItem('rido_user', JSON.stringify(user))
     set({ user, token })
   },
 
   clearAuth: async () => {
-    await SecureStore.deleteItemAsync('rido_token')
-    await SecureStore.deleteItemAsync('rido_user')
+    await storage.deleteItem('rido_token')
+    await storage.deleteItem('rido_user')
     set({ user: null, token: null })
   },
 
   hydrate: async () => {
-    const token = await SecureStore.getItemAsync('rido_token')
-    const userRaw = await SecureStore.getItemAsync('rido_user')
+    const token = await storage.getItem('rido_token')
+    const userRaw = await storage.getItem('rido_user')
     if (token && userRaw) {
       set({ token, user: JSON.parse(userRaw) })
     }

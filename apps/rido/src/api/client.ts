@@ -1,5 +1,5 @@
 import axios from 'axios'
-import * as SecureStore from 'expo-secure-store'
+import { storage } from '../utils/storage'
 
 export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
 
@@ -10,7 +10,7 @@ export const apiClient = axios.create({
 })
 
 apiClient.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('rido_token')
+  const token = await storage.getItem('rido_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -19,8 +19,8 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('rido_token')
-      await SecureStore.deleteItemAsync('rido_user')
+      await storage.deleteItem('rido_token')
+      await storage.deleteItem('rido_user')
     }
     return Promise.reject(error)
   },
