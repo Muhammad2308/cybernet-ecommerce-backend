@@ -24,7 +24,9 @@ export async function publishEvent<T>(
     .create({ data: { event_type: type, source, payload: payload as object } })
     .catch((err) => console.error('[EventBus] failed to persist event:', err.message))
 
-  await getRedis().publish(REDIS_EVENTS_CHANNEL, JSON.stringify(event))
+  await getRedis().publish(REDIS_EVENTS_CHANNEL, JSON.stringify(event)).catch((err) =>
+    console.error('[EventBus] failed to publish event to Redis:', err.message)
+  )
 }
 
 export function onEvent(eventType: RidoEventType | '*', handler: EventHandler): void {

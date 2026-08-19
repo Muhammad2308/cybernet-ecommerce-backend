@@ -86,8 +86,13 @@ if (!process.env.VERCEL) {
 }
 
 export default async (req: any, res: any) => {
-  await server.ready()
-  server.server.emit('request', req, res)
+  try {
+    await server.ready()
+    server.server.emit('request', req, res)
+  } catch (err: any) {
+    res.statusCode = 500
+    res.end(JSON.stringify({ success: false, error: err.message || 'Internal Server Error' }))
+  }
 }
 
 declare module 'fastify' {

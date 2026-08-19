@@ -16,8 +16,12 @@ export function getRedis(): Redis {
 }
 
 export function createRedisSubscriber(): Redis {
-  return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  const sub = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
   })
+  sub.on('error', (err) => {
+    console.error('[Redis Subscriber] connection error:', err.message)
+  })
+  return sub
 }
