@@ -37,6 +37,20 @@ server.register(adminRoutes,  { prefix: '/api/admin/v1' })
 server.register(shagoInternalV1Routes, { prefix: '/internal/shago/v1' })
 
 // ─── Health ─────────────────────────────────────────────────
+server.get('/', async () => ({
+  success: true,
+  name: 'Cybernet Platform API',
+  version: '3.0.0',
+  status: 'ONLINE',
+  endpoints: {
+    health: '/health',
+    rido_v1: '/api/rido/v1',
+    shago_v1: '/api/shago/v1',
+    admin_v1: '/api/admin/v1',
+  },
+  timestamp: new Date().toISOString(),
+}))
+
 server.get('/health', async () => ({
   success: true,
   message: 'Cybernet Platform API is running',
