@@ -29,7 +29,7 @@ export async function ridoFleetRoutes(server: FastifyInstance): Promise<void> {
   server.post('/fleet/register', async (request, reply) => {
     const body = registerSchema.safeParse(request.body)
     if (!body.success) return reply.code(400).send({ success: false, error: 'Validation failed', details: body.error.flatten().fieldErrors })
-    const company = await registerFleetCompany({ ...body.data, platform_type: 'RIDO' }).catch((err) => {
+    const company = await registerFleetCompany({ ...body.data, platform_type: 'RIDO' } as any).catch((err) => {
       if (err.code === 'P2002') throw Object.assign(new Error('Registration number or email already exists'), { statusCode: 409 })
       throw err
     })

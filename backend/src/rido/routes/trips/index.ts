@@ -53,7 +53,7 @@ export async function tripRoutes(server: FastifyInstance): Promise<void> {
       const trip = await createTrip({
         ...body.data,
         traveler_id,
-      })
+      } as any)
 
       return reply.code(201).send({ success: true, data: trip })
     }

@@ -36,7 +36,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
         const result = await createDelivery({
           ...body.data,
           traveler_id: request.user.sub,
-        })
+        } as any)
         return reply.code(201).send({ success: true, data: result })
       } catch (err: any) {
         return reply.code(400).send({ success: false, error: err.message })

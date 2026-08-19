@@ -27,7 +27,7 @@ export async function shagoInternalV1Routes(server: FastifyInstance): Promise<vo
   server.post('/dispatch', async (request, reply) => {
     const body = dispatchSchema.safeParse(request.body)
     if (!body.success) return reply.code(400).send({ success: false, error: 'Validation failed', details: body.error.flatten().fieldErrors })
-    const result = await dispatchShagoJob(body.data)
+    const result = await dispatchShagoJob(body.data as any)
     return reply.code(result.duplicate ? 200 : 201).send({ success: true, data: result })
   })
 
@@ -48,7 +48,7 @@ export async function shagoInternalV1Routes(server: FastifyInstance): Promise<vo
     const { ridoJobId } = request.params as { ridoJobId: string }
     const body = disputeSchema.safeParse(request.body)
     if (!body.success) return reply.code(400).send({ success: false, error: 'Validation failed' })
-    const result = await fileShagoDispute(ridoJobId, body.data).catch((err) => { throw Object.assign(new Error(err.message), { statusCode: 422 }) })
+    const result = await fileShagoDispute(ridoJobId, body.data as any).catch((err) => { throw Object.assign(new Error(err.message), { statusCode: 422 }) })
     return reply.send({ success: true, data: result })
   })
 }

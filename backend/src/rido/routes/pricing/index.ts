@@ -29,7 +29,7 @@ export async function pricingRoutes(server: FastifyInstance): Promise<void> {
         })
       }
 
-      const breakdown = await calculateShipmentPrice(body.data)
+      const breakdown = await calculateShipmentPrice(body.data as any)
       return reply.send({ success: true, data: breakdown })
     }
   )
