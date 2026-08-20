@@ -23,6 +23,9 @@
     "postinstall": "npx prisma generate --schema=backend/prisma/schema.prisma || true",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
+  "devDependencies": {
+    "prisma": "^5.7.1"
+  },
   "dependencies": {
     "@fastify/cors": "^8.5.0",
     "@fastify/formbody": "^7.4.0",
