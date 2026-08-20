@@ -20,11 +20,12 @@
     "db:generate": "npm run prisma:generate --workspace=backend",
     "db:studio": "npm run prisma:studio --workspace=backend",
     "db:seed": "npm run prisma:seed --workspace=backend",
-    "postinstall": "npx prisma generate --schema=backend/prisma/schema.prisma || true",
+    "postinstall": "npx prisma generate --schema=backend/prisma/schema.prisma",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
-    "prisma": "^5.7.1"
+    "@prisma/client": "5.22.0",
+    "prisma": "5.22.0"
   },
   "dependencies": {
     "@fastify/cors": "^8.5.0",

@@ -10,7 +10,6 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "vercel-build": "expo export --platform web",
-    "postinstall": "echo 'RIDO ready'",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
     "typecheck": "tsc --noEmit"
