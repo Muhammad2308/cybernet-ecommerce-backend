@@ -19,6 +19,7 @@ enum Role {
   SENDER
   TRAVELER
   LOGISTICS_ADMIN
+  RECEIVER_HUB
   // SHAGO platform roles
   RETAILER
   WHOLESALER
@@ -30,6 +31,11 @@ enum Role {
   // CYBERNET master admin
   CYBERNET_ADMIN
   ADMIN
+}
+
+enum DeliveryMode {
+  DOOR_TO_DOOR
+  HUB_PICKUP
 }
 
 enum AccountStatus {
@@ -320,11 +326,16 @@ model Delivery {
   traveler_id     String
   status          DeliveryStatus @default(PENDING_PICKUP)
   agreed_price    Float
-  pickup_code     String?
-  dropoff_code    String?
-  picked_up_at    DateTime?
-  delivered_at    DateTime?
-  created_at      DateTime       @default(now())
+  delivery_mode    DeliveryMode   @default(HUB_PICKUP)
+  unique_pickup_id String?        @unique
+  qr_code_hash     String?
+  pickup_code      String?
+  dropoff_code     String?
+  otp_code_pickup  String?
+  otp_code_delivery String?
+  picked_up_at     DateTime?
+  delivered_at     DateTime?
+  created_at       DateTime       @default(now())
   updated_at      DateTime       @updatedAt
 
   shipment         Shipment        @relation(fields: [shipment_id], references: [id])
@@ -469,6 +480,8 @@ model FleetCompany {
   country             String              @default("NG")
   logo_url            String?
   platform_type       PlatformType        @default(RIDO)
+  is_receiving_hub    Boolean             @default(false)
+  hub_type            String?
   status              FleetCompanyStatus  @default(PENDING)
   commission_rate     Float               @default(10)
   currency            String              @default("NGN")

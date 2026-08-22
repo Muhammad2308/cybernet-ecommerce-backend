@@ -10,6 +10,7 @@ export interface CalculatePriceInput {
   size: SizeBracket
   urgency?: UrgencyLevel
   vehicle_type?: VehicleType
+  delivery_mode?: 'DOOR_TO_DOOR' | 'HUB_PICKUP'
   currency?: string
 }
 
@@ -17,6 +18,7 @@ export interface PriceBreakdown {
   distance_km: number
   base_fee: number
   distance_fee: number
+  door_to_door_surcharge: number
   weight_multiplier: number
   size_multiplier: number
   urgency_multiplier: number
@@ -165,8 +167,11 @@ export async function calculateShipmentPrice(input: CalculatePriceInput): Promis
     }
   }
 
+  const door_to_door_surcharge =
+    input.delivery_mode === 'DOOR_TO_DOOR' ? (config.DOOR_TO_DOOR_SURCHARGE ?? 500) : 0
+
   const rawSubtotal =
-    (base_fee + distance_fee) *
+    (base_fee + distance_fee + door_to_door_surcharge) *
     weight_multiplier *
     size_multiplier *
     urgency_multiplier *
@@ -186,6 +191,7 @@ export async function calculateShipmentPrice(input: CalculatePriceInput): Promis
     distance_km,
     base_fee,
     distance_fee: Math.round(distance_fee),
+    door_to_door_surcharge: Math.round(door_to_door_surcharge),
     weight_multiplier,
     size_multiplier,
     urgency_multiplier,

@@ -10,11 +10,14 @@ import { recordDeliveryEarning } from './earnings.service'
 import { publishEvent } from '../../events/event-bus'
 import { RIDO_EVENTS } from '../../events/event-types'
 
+import { generateUniquePickupId, generateReceiverQRPayload, verifyQRPayload } from '../../services/qr.service'
+
 export interface CreateDeliveryParams {
   shipment_id: string
   trip_id: string
   traveler_id: string
   agreed_price: number
+  delivery_mode?: 'DOOR_TO_DOOR' | 'HUB_PICKUP'
 }
 
 function generateOtp(): string {
@@ -22,7 +25,7 @@ function generateOtp(): string {
 }
 
 export async function createDelivery(params: CreateDeliveryParams) {
-  const { shipment_id, trip_id, traveler_id, agreed_price } = params
+  const { shipment_id, trip_id, traveler_id, agreed_price, delivery_mode } = params
 
   const shipment = await prisma.shipment.findUnique({ where: { id: shipment_id } })
   if (!shipment) throw new Error('Shipment not found')
@@ -38,6 +41,7 @@ export async function createDelivery(params: CreateDeliveryParams) {
 
   const pickup_code = generateOtp()
   const dropoff_code = generateOtp()
+  const unique_pickup_id = generateUniquePickupId()
 
   const result = await prisma.$transaction(async (tx) => {
     // 1. Create delivery
@@ -49,8 +53,16 @@ export async function createDelivery(params: CreateDeliveryParams) {
         agreed_price,
         pickup_code,
         dropoff_code,
+        delivery_mode: delivery_mode === 'DOOR_TO_DOOR' ? 'DOOR_TO_DOOR' : 'HUB_PICKUP',
+        unique_pickup_id,
         status: DeliveryStatus.PENDING_PICKUP,
       },
+    })
+
+    const qr_code_hash = generateReceiverQRPayload(delivery.id, shipment.sender_id)
+    await tx.delivery.update({
+      where: { id: delivery.id },
+      data: { qr_code_hash },
     })
 
     // 2. Create transaction room with escrow
@@ -195,6 +207,79 @@ export async function confirmDeliveryCompletion(delivery_id: string, dropoff_cod
     delivery_id,
     shipment_id: delivery.shipment_id,
     traveler_id: delivery.traveler_id,
+  })
+
+  return result
+}
+
+export async function verifyDeliveryQRCode(delivery_id: string, qr_payload: string, verifier_id: string) {
+  const verification = verifyQRPayload(qr_payload)
+  if (!verification.valid || !verification.data) {
+    throw new Error(verification.error || 'Invalid QR code signature')
+  }
+
+  if (verification.data.delivery_id !== delivery_id) {
+    throw new Error('QR code payload does not match this delivery')
+  }
+
+  const delivery = await prisma.delivery.findUnique({
+    where: { id: delivery_id },
+    include: { shipment: true, transaction_room: true },
+  })
+
+  if (!delivery) throw new Error('Delivery not found')
+
+  if (delivery.status === DeliveryStatus.DELIVERED) {
+    throw new Error('Delivery has already been completed')
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Mark delivery as DELIVERED
+    const updatedDelivery = await tx.delivery.update({
+      where: { id: delivery_id },
+      data: {
+        status: DeliveryStatus.DELIVERED,
+        delivered_at: new Date(),
+      },
+    })
+
+    // 2. Mark shipment as DELIVERED
+    await tx.shipment.update({
+      where: { id: delivery.shipment_id },
+      data: { status: ShipmentStatus.DELIVERED },
+    })
+
+    // 3. Release Escrow
+    if (delivery.transaction_room) {
+      await tx.transactionRoom.update({
+        where: { id: delivery.transaction_room.id },
+        data: {
+          escrow_status: EscrowStatus.RELEASED,
+          room_status: RoomStatus.CLOSED,
+        },
+      })
+    }
+
+    // 4. Log Delivery Event
+    await tx.deliveryEvent.create({
+      data: {
+        delivery_id,
+        event_type: 'QR_VERIFIED_DELIVERY',
+        metadata: JSON.stringify({ verifier_id, delivery_mode: delivery.delivery_mode }),
+      },
+    })
+
+    return updatedDelivery
+  })
+
+  // 5. Calculate and record earnings
+  await recordDeliveryEarning(delivery_id)
+
+  await publishEvent(RIDO_EVENTS.DELIVERY_CONFIRMED, {
+    delivery_id,
+    shipment_id: delivery.shipment_id,
+    traveler_id: delivery.traveler_id,
+    verifier_id,
   })
 
   return result

@@ -124,4 +124,32 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       }
     }
   )
+
+  // ─── Confirm Delivery via QR Code Scan ─────────────────────────
+  server.post(
+    '/deliveries/:id/verify-qr',
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const { qr_payload } = request.body as { qr_payload: string }
+
+      if (!qr_payload) {
+        return reply.code(400).send({
+          success: false,
+          error: 'Validation failed: qr_payload is required',
+        })
+      }
+
+      try {
+        const updated = await confirmDeliveryCompletion(id, qr_payload)
+        return reply.send({
+          success: true,
+          message: 'QR Code verified successfully. Delivery confirmed and escrow released.',
+          data: updated,
+        })
+      } catch (err: any) {
+        return reply.code(400).send({ success: false, error: err.message })
+      }
+    }
+  )
 }
