@@ -1,148 +1,39 @@
-# RIDO Phase 2 Architecture & Implementation Plan (Restructured)
-## Auth, RBAC, Proximity Dispatch, Door-to-Door Surcharges & QR Code Receiver Verification
+# RIDO Delivery Application — Corrected Product Plan
 
-> [!IMPORTANT]
-> This updated plan incorporates **Door-to-Door Delivery** (with dynamic pricing surcharges) vs **Hub/Motor Park Pickup** (e.g., NURTW hubs), **Unique Receiver Pickup IDs**, and **QR Code Scanning Verification** for both Door-to-Door carriers and Receiving Hub officials.
+## Product boundary
 
----
+**N-Trust** is the business and trust platform. **RIDO** is its delivery application. **SHAGO** is the separate eCommerce application that will integrate with RIDO through versioned internal APIs. This plan concerns RIDO only.
 
-## 1. Business Model & Participant Architecture
+## Authoritative delivery flow
 
-RIDO connects **Senders**, **Carriers/Travelers** (independent individuals & registered logistics fleet drivers), and **Receivers** (individual doorstep customers or registered motor park hubs like **NURTW**).
+1. A registered `SENDER` creates a shipment and selects a distinct, registered `RECEIVER` by user ID. Their phone and email belong to the receiver account; a sender can never be their own receiver.
+2. The sender starts a delivery. RIDO presents nearby, recently-online independent `TRAVELER` recommendations; the sender may select one of them, or allow RIDO to select the closest available traveler automatically. RIDO validates the selected traveler's active status and pickup proximity before dispatching and notifying them.
+3. Alternatively, an approved `LOGISTICS_ADMIN` starts a delivery for a shipment and assigns an active driver belonging to that administrator's fleet. The fleet driver is notified to collect at the shipment pickup location.
+4. The assigned driver alone can confirm pickup. RIDO moves the shipment to `IN_TRANSIT`.
+5. RIDO creates a receiver-bound, signed QR payload and a human-readable pickup ID. The QR is printed/tagged on the package and displayed in the receiver’s app.
+6. At handover, the authenticated receiver scans the tagged QR and confirms receipt. The API verifies delivery ID, receiver ID, signature, stored hash, expiry, and delivery state.
+7. Only then does one database transaction mark the delivery and shipment delivered, close the room, and release escrow. Sender, receiver, driver, and fleet admins receive notifications.
 
-```mermaid
-graph TD
-    A[Sender] -->|1. Chooses Delivery Mode| B{Delivery Mode}
-    B -->|Door-to-Door + Extra Surcharge| C[Door-to-Door Carrier Dispatch]
-    B -->|Hub/Park Pickup Standard Rate| D[Hub Transfer Carrier Dispatch]
+## Rules that cannot be bypassed
 
-    C -->|2. Proximity Matching| E[Nearest Carrier Accepted]
-    D -->|2. Proximity Matching| E
+- Travelers cannot create trips or deliveries for themselves.
+- A sender may select an eligible nearby traveler from RIDO recommendations, or use automatic nearest-traveler dispatch. A sender cannot assign an unavailable or distant traveler.
+- A fleet admin can assign only an active driver from their own fleet.
+- Receiver confirmation is required for payout. A driver, sender, or unrelated authenticated user cannot release escrow.
+- Hub pickup is a later variation: a company that opts into `is_receiving_hub` may operate a hub after master-admin approval. It still must use a receiver-bound handover record.
 
-    E -->|3. Pickup & Live GPS Map Tracking| F{Arrival Verification}
+## Logistics-company onboarding
 
-    F -->|Door-to-Door Delivery| G[Carrier Scans Customer Receiver QR Code]
-    F -->|Hub / Park Delivery| H[Hub Log Package Arrival]
-    H -->|Customer Visits Hub| I[Hub Official Scans Receiver QR Code / Unique ID]
+1. A master admin creates or reviews the company registration and chooses whether it may also operate as a receiving hub.
+2. The system creates a single-use, hashed onboarding token, valid for seven days, for the nominated logistics admin.
+3. SMS, WhatsApp, and/or email sends a link containing the token. No public sign-up can grant logistics-admin or receiver-hub authority.
+4. The invitee opens the link, verifies the nominated email and phone, creates a password, accepts terms, and activates the dashboard.
+5. On success, the company is approved or remains pending master-admin verification; the dashboard displays the Play Store app link and driver-invite tools.
 
-    G -->|4. Validated| J[Instant Escrow Funds Release & Payout]
-    I -->|4. Validated| J
-```
+## Individual mobile entry point
 
-### Participant Categories & Delivery Modes
+An individual registers once as a customer, traveler, or both. RIDO stores those capabilities on the same account. On successful sign-up or login, the mobile app registers an app-generated device identifier and receives a rotated refresh token for that device. On later launches the app calls `/auth/session`; a valid 90-day device session issues a fresh short-lived access token and opens the dashboard, while invalid or revoked sessions return the user to sign-in.
 
-#### A. Delivery Modes & Pricing Mechanics
-1. **Door-to-Door Delivery**:
-   - Package is picked up from Sender and delivered directly to the Customer Receiver's doorstep.
-   - **Pricing Surcharge**: Attracts an additional Door-to-Door service fee multiplier (configurable in `PricingConfig`).
-2. **Hub/Motor Park Pickup (e.g. NURTW Hubs)**:
-   - Package is delivered to a registered Receiving Hub or Motor Park.
-   - Customer Receiver receives a **Unique Pickup ID** & **Encrypted QR Code** via SMS/App Notification to visit the hub and retrieve the parcel.
+## Current implementation notes
 
-#### B. Roles & Hierarchy
-- `SENDER`: Launches request, selects `DOOR_TO_DOOR` or `HUB_PICKUP`, pays escrow.
-- `TRAVELER` (Individual / Fleet Driver): Receives proximity dispatch, broadcasts live GPS pings, scans Receiver QR code for Door-to-Door deliveries.
-- `RECEIVER` (Customer): Receives live tracking link, Unique Pickup ID, and QR Code for parcel verification.
-- `RECEIVER_HUB` (e.g. NURTW Park Official / Warehouse): Scans Customer QR Code upon hub visit, releases package, and completes escrow.
-- `FLEET_ADMIN`: Fleet monitoring & analytics.
-- `ADMIN`: Global operator dashboard & dispute resolution.
-
----
-
-## 2. Role-Based Access Control (RBAC) & Delivery Mode Matrix
-
-| Role | Scope | Key Permissions & Capabilities |
-|---|---|---|
-| `SENDER` | Self | Select delivery mode (`DOOR_TO_DOOR` or `HUB_PICKUP`), view live GPS map tracking, generate receiver QR payload. |
-| `TRAVELER` | Self / Fleet | Broadcast location pings, accept/decline proximity dispatches, **scan Receiver QR Code for Door-to-Door delivery validation**. |
-| `RECEIVER` (Customer) | Self | View live map tracking stream, access **Unique Pickup ID** & **Encrypted QR Code**, receive SMS/Push notifications. |
-| `RECEIVER_HUB` (NURTW) | Hub Location Scoped | Receive incoming hub arrivals, **scan Customer Receiver QR Code** at hub counter, confirm parcel handover, trigger escrow release. |
-| `FLEET_ADMIN` | Fleet Scoped | Live map tracking of all fleet drivers, monitor end-to-end active deliveries, view fleet earnings. |
-| `CYBERNET_ADMIN` / `ADMIN` | Global System | Manage Door-to-Door pricing surcharges, approve/suspend hubs and fleet companies, resolve escrow disputes. |
-
----
-
-## 3. QR Code Scanning & Verification Mechanism
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Customer as Receiver Customer
-    participant App as RIDO App / SMS Engine
-    actor Verifier as Carrier (Door-to-Door) OR Hub Official (NURTW)
-    participant Auth as Fastify API Server
-    participant Escrow as Escrow Engine
-
-    App-->>Customer: Generates Unique Pickup ID (e.g. RIDO-8F92) + HMAC QR Payload
-    Customer->>Verifier: Presents QR Code / Unique Pickup ID on arrival
-    Verifier->>Auth: POST /deliveries/:id/verify-qr (qr_payload or pickup_id)
-    Auth->>Auth: Decrypt HMAC & Validate Delivery Match
-    Auth->>Escrow: Release Escrow Funds to Carrier / Hub
-    Auth-->>Verifier: 200 OK — Delivery Confirmed & Package Handed Over
-    Auth-->>Customer: SMS Notification: "Package Successfully Received"
-```
-
-### QR Payload Security Composition
-- **HMAC Signatures**: QR code contains an encrypted token `HMAC-SHA256(delivery_id + receiver_id + timestamp, JWT_SECRET)`.
-- **Offline / Manual Fallback**: If QR scanning fails or camera is unavailable, the 6-digit **Unique Pickup ID** + Receiver Phone OTP serves as manual fallback.
-
----
-
-## 4. Authentication & Session Management Architecture
-
-- **Auth Pattern**: Passwordless Phone/Email OTP verification.
-- **Tokens**: Short-lived 15m Access JWT + 7-day Refresh Token.
-- **WebSocket Security**: Handshake JWT validation scoped to `delivery_id`.
-
----
-
-## 5. Non-Discriminatory Proximity Dispatch & Real-Time Map Tracking
-
-1. **PostGIS Proximity Search**: Searches online carriers (individual or fleet drivers) within 5km–15km radius.
-2. **Accept/Decline Cascade**: 30-second timer per carrier.
-3. **Live GPS Stream**: Broadcasts live map pings via WebSockets to Senders, Receivers, and Fleet Admins simultaneously.
-
----
-
-## 6. Proposed Changes & Implementation Roadmap
-
-### [Component] Database Schema & Models
-
-#### [MODIFY] [schema.prisma](file:///c:/Users/DELL/Desktop/cybernet/backend/prisma/schema.prisma)
-- Add `DeliveryMode` ENUM (`DOOR_TO_DOOR`, `HUB_PICKUP`).
-- Add `RECEIVER_HUB` to `Role` ENUM.
-- Add `door_to_door_surcharge` field to `PricingConfig` model.
-- Add `unique_pickup_id`, `qr_code_hash`, and `delivery_mode` to `Delivery` model.
-
----
-
-### [Component] Backend Services & Routes
-
-#### [MODIFY] [pricing.service.ts](file:///c:/Users/DELL/Desktop/cybernet/backend/src/rido/services/pricing.service.ts)
-- Add Door-to-Door surcharge calculation when `delivery_mode === 'DOOR_TO_DOOR'`.
-
-#### [NEW] [qr.service.ts](file:///c:/Users/DELL/Desktop/cybernet/backend/src/services/qr.service.ts)
-- Generate HMAC QR code payloads and Unique Pickup IDs (`RIDO-XXXX`).
-
-#### [MODIFY] [delivery.service.ts](file:///c:/Users/DELL/Desktop/cybernet/backend/src/rido/services/delivery.service.ts)
-- Implement `verifyDeliveryQRCode(delivery_id, qr_payload, verifier_id)` for both Door-to-Door carriers and Hub officials.
-
----
-
-### [Component] Frontend Applications
-
-#### [MODIFY] [apps/rido](file:///c:/Users/DELL/Desktop/cybernet/apps/rido/App.tsx)
-- Integrate QR Scanner view (`expo-camera`) for Carriers and Receiving Hubs.
-- Render Receiver Unique Pickup ID & QR Code view in Receiver screen.
-
----
-
-## 7. Verification Plan
-
-### Automated Tests
-- `npm run test:pricing` — Test Door-to-Door surcharge price calculations.
-- `npm run test:qr` — Test HMAC QR payload generation and scanning validation.
-
-### Manual Verification
-- Test Door-to-Door vs Hub Pickup price breakdown in RIDO app.
-- Scan QR code on carrier screen to confirm instant escrow release.
+The code now enforces the sender/receiver distinction, sender/admin dispatch ownership, fleet driver scoping, and receiver-only QR confirmation. Provider-backed SMS, WhatsApp, email delivery, onboarding-token persistence, PostGIS dispatch, and app UI remain planned work rather than production-ready integrations.

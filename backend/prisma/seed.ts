@@ -23,6 +23,7 @@ const pricingConfigs = [
   { key: 'ESCROW_FEE_PERCENTAGE', value: 2.5, description: 'Percentage of delivery value held as escrow processing fee' },
   { key: 'PLATFORM_FEE_PERCENTAGE', value: 10, description: "Rido's platform commission percentage taken from each delivery" },
   { key: 'MINIMUM_DELIVERY_FEE', value: 300, description: 'Minimum delivery fee in Naira regardless of calculation result' },
+  { key: 'DOOR_TO_DOOR_SURCHARGE', value: 500, description: 'Fixed surcharge for direct door-to-door delivery' },
 ]
 
 async function main() {

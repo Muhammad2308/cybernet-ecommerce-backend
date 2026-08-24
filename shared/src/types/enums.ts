@@ -12,8 +12,10 @@ export enum PlatformType {
 export enum Role {
   // RIDO roles
   SENDER = 'SENDER',
+  RECEIVER = 'RECEIVER',
   TRAVELER = 'TRAVELER',
   LOGISTICS_ADMIN = 'LOGISTICS_ADMIN',   // fleet admin in RIDO
+  RECEIVER_HUB = 'RECEIVER_HUB',
   FLEET_ADMIN = 'FLEET_ADMIN',           // legacy alias — kept for backward compat
 
   // SHAGO roles
@@ -92,6 +94,11 @@ export enum ShipmentStatus {
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
   DISPUTED = 'DISPUTED',
+}
+
+export enum DeliveryMode {
+  DOOR_TO_DOOR = 'DOOR_TO_DOOR',
+  HUB_PICKUP = 'HUB_PICKUP',
 }
 
 export enum DeliveryStatus {
@@ -174,6 +181,7 @@ export enum PricingKey {
   ESCROW_FEE_PERCENTAGE = 'ESCROW_FEE_PERCENTAGE',
   PLATFORM_FEE_PERCENTAGE = 'PLATFORM_FEE_PERCENTAGE',
   MINIMUM_DELIVERY_FEE = 'MINIMUM_DELIVERY_FEE',
+  DOOR_TO_DOOR_SURCHARGE = 'DOOR_TO_DOOR_SURCHARGE',
 }
 
 // ============================================================
@@ -216,6 +224,7 @@ export enum NotificationStatus {
 export enum RecipientType {
   DRIVER = 'DRIVER',
   SENDER = 'SENDER',
+  RECEIVER = 'RECEIVER',
   FLEET_ADMIN = 'FLEET_ADMIN',
   LOGISTICS_ADMIN = 'LOGISTICS_ADMIN',
   LOGISTICS_AGENT = 'LOGISTICS_AGENT',

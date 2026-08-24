@@ -70,9 +70,10 @@ export function registerNotificationHandlers(): void {
   })
 
   onEvent(RIDO_EVENTS.DELIVERY_CONFIRMED, async (event: RidoEvent) => {
-    const { sender_id, driver_id, fleet_admin_ids, delivery_id } = event.payload as { sender_id: string; driver_id: string; fleet_admin_ids?: string[]; delivery_id: string }
+    const { sender_id, receiver_id, driver_id, fleet_admin_ids, delivery_id } = event.payload as { sender_id: string; receiver_id?: string; driver_id: string; fleet_admin_ids?: string[]; delivery_id: string }
     await sendNotification({ recipient_id: sender_id, recipient_type: RecipientType.SENDER, event_type: event.type, title: 'Delivery confirmed', body: 'Your package has been delivered successfully.', data: { delivery_id }, channels: [NotificationChannel.PUSH, NotificationChannel.SMS] })
     await sendNotification({ recipient_id: driver_id, recipient_type: RecipientType.DRIVER, event_type: event.type, title: 'Delivery complete', body: 'Delivery confirmed. Your earnings have been credited.', data: { delivery_id }, channels: [NotificationChannel.PUSH] })
+    if (receiver_id) await sendNotification({ recipient_id: receiver_id, recipient_type: RecipientType.RECEIVER, event_type: event.type, title: 'Delivery confirmed', body: 'You confirmed receipt of this package.', data: { delivery_id }, channels: [NotificationChannel.PUSH] })
     if (fleet_admin_ids?.length) {
       for (const adminId of fleet_admin_ids) {
         await sendNotification({ recipient_id: adminId, recipient_type: RecipientType.FLEET_ADMIN, event_type: event.type, title: 'Delivery completed', body: 'A delivery by one of your drivers has been confirmed.', data: { delivery_id }, channels: [NotificationChannel.IN_APP] })

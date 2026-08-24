@@ -12,6 +12,7 @@ const estimatePriceSchema = z.object({
   size: z.nativeEnum(SizeBracket),
   urgency: z.nativeEnum(UrgencyLevel).optional(),
   vehicle_type: z.nativeEnum(VehicleType).optional(),
+  delivery_mode: z.enum(['DOOR_TO_DOOR', 'HUB_PICKUP']).optional(),
   currency: z.string().optional(),
 })
 

@@ -5,12 +5,14 @@ import {
   confirmPickup,
   confirmDeliveryCompletion,
   getDeliveryDetails,
+  verifyDeliveryQRCode,
 } from '../../services/delivery.service'
 
 const createDeliverySchema = z.object({
   shipment_id: z.string().uuid(),
-  trip_id: z.string().uuid(),
   agreed_price: z.number().positive(),
+  delivery_mode: z.enum(['DOOR_TO_DOOR', 'HUB_PICKUP']).optional(),
+  traveler_id: z.string().uuid().optional(),
 })
 
 const verifyCodeSchema = z.object({
@@ -35,7 +37,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       try {
         const result = await createDelivery({
           ...body.data,
-          traveler_id: request.user.sub,
+          created_by_id: request.user.sub,
         } as any)
         return reply.code(201).send({ success: true, data: result })
       } catch (err: any) {
@@ -59,7 +61,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       // Hide codes from non-participants
       const userId = request.user.sub
       const isParticipant =
-        userId === delivery.traveler_id || userId === delivery.shipment.sender_id
+        userId === delivery.traveler_id || userId === delivery.shipment.sender_id || userId === delivery.receiver_id
 
       if (!isParticipant && request.user.role !== 'ADMIN') {
         return reply.code(403).send({ success: false, error: 'Access denied' })
@@ -85,7 +87,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       }
 
       try {
-        const updated = await confirmPickup(id, body.data.code)
+        const updated = await confirmPickup(id, body.data.code, request.user.sub)
         return reply.send({
           success: true,
           message: 'Pickup confirmed successfully',
@@ -113,7 +115,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       }
 
       try {
-        const updated = await confirmDeliveryCompletion(id, body.data.code)
+        const updated = await confirmDeliveryCompletion(id, body.data.code, request.user.sub)
         return reply.send({
           success: true,
           message: 'Delivery confirmed and escrow released successfully',
@@ -141,7 +143,7 @@ export async function deliveryRoutes(server: FastifyInstance): Promise<void> {
       }
 
       try {
-        const updated = await confirmDeliveryCompletion(id, qr_payload)
+        const updated = await verifyDeliveryQRCode(id, qr_payload, request.user.sub)
         return reply.send({
           success: true,
           message: 'QR Code verified successfully. Delivery confirmed and escrow released.',

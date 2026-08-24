@@ -3,6 +3,7 @@ import { PackageCategory, SizeBracket, WeightBracket, UrgencyLevel, ShipmentStat
 
 export interface CreateShipmentParams {
   sender_id: string
+  receiver_id: string
   title: string
   description?: string
   category: PackageCategory
@@ -33,6 +34,7 @@ export async function createShipment(data: CreateShipmentParams) {
   return prisma.shipment.create({
     data: {
       sender_id: data.sender_id,
+      receiver_id: data.receiver_id,
       title: data.title,
       description: data.description,
       category: data.category,
@@ -54,6 +56,7 @@ export async function createShipment(data: CreateShipmentParams) {
       sender: {
         select: { id: true, full_name: true, email: true, phone: true, avatar_url: true },
       },
+      receiver: { select: { id: true, full_name: true, email: true, phone: true } },
     },
   })
 }

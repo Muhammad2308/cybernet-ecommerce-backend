@@ -10,6 +10,7 @@ import {
 import { VehicleType, TripStatus } from '@prisma/client'
 
 const createTripSchema = z.object({
+  traveler_id: z.string().uuid(),
   origin_address: z.string().min(3),
   origin_lat: z.number().min(-90).max(90),
   origin_lng: z.number().min(-180).max(180),
@@ -49,9 +50,15 @@ export async function tripRoutes(server: FastifyInstance): Promise<void> {
         })
       }
 
-      const traveler_id = request.user.sub
+      if (request.user.role === 'TRAVELER') {
+        return reply.code(403).send({ success: false, error: 'Travelers cannot create trips; trips are created by a sender or logistics admin dispatch workflow' })
+      }
+      if (!['SENDER', 'LOGISTICS_ADMIN', 'FLEET_ADMIN', 'ADMIN', 'CYBERNET_ADMIN'].includes(request.user.role)) {
+        return reply.code(403).send({ success: false, error: 'Only a sender or logistics admin can create a trip' })
+      }
+      const { traveler_id, ...tripData } = body.data
       const trip = await createTrip({
-        ...body.data,
+        ...tripData,
         traveler_id,
       } as any)
 

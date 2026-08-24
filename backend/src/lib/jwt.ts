@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify'
+import crypto from 'crypto'
 
 export type JwtPayload = {
   sub: string
@@ -22,5 +23,15 @@ export function signToken(server: FastifyInstance, payload: JwtPayload): string 
   return server.jwt.sign(payload, {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   })
+}
+
+/** Short-lived access token (15 minutes) */
+export function signAccessToken(server: FastifyInstance, payload: JwtPayload): string {
+  return server.jwt.sign(payload, { expiresIn: '15m' })
+}
+
+/** Long-lived refresh token (7 days) — opaque random string */
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(48).toString('base64url')
 }
 

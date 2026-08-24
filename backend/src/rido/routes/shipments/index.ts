@@ -8,6 +8,7 @@ import {
   cancelShipment,
 } from '../../services/shipment.service'
 import { PackageCategory, SizeBracket, WeightBracket, UrgencyLevel, ShipmentStatus } from '@prisma/client'
+import { prisma } from '../../../lib/prisma'
 
 const createShipmentSchema = z.object({
   title: z.string().min(3),
@@ -25,6 +26,7 @@ const createShipmentSchema = z.object({
   dropoff_lng: z.number().min(-180).max(180),
   receiver_name: z.string().min(2),
   receiver_phone: z.string().min(8),
+  receiver_id: z.string().uuid(),
   estimated_price: z.number().positive().optional(),
 })
 
@@ -56,10 +58,14 @@ export async function shipmentRoutes(server: FastifyInstance): Promise<void> {
       }
 
       const sender_id = request.user.sub
-      const shipment = await createShipment({
-        ...body.data,
-        sender_id,
-      } as any)
+      if (body.data.receiver_id === sender_id) {
+        return reply.code(400).send({ success: false, error: 'Receiver must be a different registered user' })
+      }
+      const receiver = await prisma.user.findUnique({ where: { id: body.data.receiver_id } })
+      if (!receiver || receiver.phone !== body.data.receiver_phone || receiver.full_name !== body.data.receiver_name) {
+        return reply.code(400).send({ success: false, error: 'Receiver must be a registered user matching the supplied name and phone' })
+      }
+      const shipment = await createShipment({ ...body.data, sender_id } as any)
 
       return reply.code(201).send({ success: true, data: shipment })
     }

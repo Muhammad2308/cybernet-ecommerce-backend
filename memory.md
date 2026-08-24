@@ -1,7 +1,15 @@
 # Project Memory — RIDO / SHAGO / N-Trust Ecosystem
 
 > Last updated: 2026-06-16
-> Operated by: CYBERNET SYSTEMS
+> Operated by: N-Trust / CYBERNET SYSTEMS
+> Canonical naming update: 2026-08-22
+
+## Canonical Product Names and Current Focus
+
+- **N-Trust** is the business, operating identity, and trust platform.
+- **RIDO** is the N-Trust delivery application; it owns dispatch, package handover, delivery confirmation, and escrow lifecycle.
+- **SHAGO** is the eCommerce application; it will integrate with RIDO through internal APIs but does not control RIDO delivery state.
+- **Current focus:** RIDO delivery safety. See `RIDO_REQUIREMENTS_SPECIFICATION.md` and `RIDO_IMPLEMENTATION_PLAN_PRIORITY.md` for the authoritative requirements and priorities.
 
 ---
 

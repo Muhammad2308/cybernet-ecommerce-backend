@@ -17,6 +17,7 @@ datasource db {
 enum Role {
   // RIDO platform roles
   SENDER
+  RECEIVER
   TRAVELER
   LOGISTICS_ADMIN
   RECEIVER_HUB
@@ -208,6 +209,7 @@ enum NotificationStatus {
 enum RecipientType {
   DRIVER
   SENDER
+  RECEIVER
   FLEET_ADMIN
   RIDO_ADMIN
 }
@@ -246,12 +248,16 @@ model User {
   tier            Tier          @default(BASIC)
   avatar_url      String?
   is_verified     Boolean       @default(false)
+  individual_roles String[]     @default([])
   created_at      DateTime      @default(now())
   updated_at      DateTime      @updatedAt
 
   trips               Trip[]
-  shipments           Shipment[]
-  deliveries          Delivery[]
+  shipments           Shipment[]              @relation("ShipmentSender")
+  received_shipments  Shipment[]              @relation("ShipmentReceiver")
+  traveler_deliveries Delivery[]              @relation("DeliveryTraveler")
+  receiver_deliveries Delivery[]              @relation("DeliveryReceiver")
+  created_deliveries  Delivery[]              @relation("DeliveryCreator")
   sent_messages       Message[]
   location_pings      LocationPing[]
   payments            Payment[]
@@ -263,8 +269,29 @@ model User {
   fleet_admin_of      FleetCompanyAdmin[]
   driver_stats        DriverStats?
   notifications       Notification[]
+  device_sessions     DeviceSession[]
 
   @@map("users")
+}
+
+model DeviceSession {
+  id                 String   @id @default(uuid())
+  user_id            String
+  device_id          String
+  refresh_token_hash String   @unique
+  device_name        String?
+  platform           String?
+  expires_at         DateTime
+  last_seen_at       DateTime @default(now())
+  revoked_at         DateTime?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  user               User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, device_id])
+  @@index([device_id])
+  @@map("device_sessions")
 }
 
 model Trip {
@@ -293,6 +320,7 @@ model Trip {
 model Shipment {
   id               String          @id @default(uuid())
   sender_id        String
+  receiver_id      String
   title            String
   description      String?
   category         PackageCategory
@@ -313,7 +341,8 @@ model Shipment {
   created_at       DateTime        @default(now())
   updated_at       DateTime        @updatedAt
 
-  sender           User            @relation(fields: [sender_id], references: [id])
+  sender           User            @relation("ShipmentSender", fields: [sender_id], references: [id])
+  receiver         User            @relation("ShipmentReceiver", fields: [receiver_id], references: [id])
   delivery         Delivery?
 
   @@map("shipments")
@@ -322,13 +351,17 @@ model Shipment {
 model Delivery {
   id              String         @id @default(uuid())
   shipment_id     String         @unique
-  trip_id         String
+  trip_id         String?
   traveler_id     String
+  receiver_id     String
+  created_by_id   String
+  fleet_company_id String?
   status          DeliveryStatus @default(PENDING_PICKUP)
   agreed_price    Float
   delivery_mode    DeliveryMode   @default(HUB_PICKUP)
   unique_pickup_id String?        @unique
   qr_code_hash     String?
+  qr_expires_at    DateTime?
   pickup_code      String?
   dropoff_code     String?
   otp_code_pickup  String?
@@ -339,8 +372,11 @@ model Delivery {
   updated_at      DateTime       @updatedAt
 
   shipment         Shipment        @relation(fields: [shipment_id], references: [id])
-  trip             Trip            @relation(fields: [trip_id], references: [id])
-  traveler         User            @relation(fields: [traveler_id], references: [id])
+  trip             Trip?           @relation(fields: [trip_id], references: [id])
+  traveler         User            @relation("DeliveryTraveler", fields: [traveler_id], references: [id])
+  receiver         User            @relation("DeliveryReceiver", fields: [receiver_id], references: [id])
+  created_by       User            @relation("DeliveryCreator", fields: [created_by_id], references: [id])
+  fleet_company    FleetCompany?   @relation(fields: [fleet_company_id], references: [id])
   transaction_room TransactionRoom?
   events           DeliveryEvent[]
   dispute          Dispute?
@@ -492,6 +528,7 @@ model FleetCompany {
   admins              FleetCompanyAdmin[]
   driver_memberships  FleetDriverMembership[]
   invites             FleetInvite[]
+  deliveries          Delivery[]
   earnings            DeliveryEarning[]
   stats               FleetCompanyStats[]
   webhook_endpoints   WebhookEndpoint[]

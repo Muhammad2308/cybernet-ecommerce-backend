@@ -7,7 +7,7 @@ export function useLogin() {
   return useMutation({
     mutationFn: (payload: LoginPayload) => authApi.login(payload),
     onSuccess: async ({ data }) => {
-      await setAuth(data.data.user, data.data.token)
+      await setAuth(data.data.user, data.data.access_token)
     },
   })
 }
@@ -17,7 +17,7 @@ export function useRegister() {
   return useMutation({
     mutationFn: (payload: RegisterPayload) => authApi.register(payload),
     onSuccess: async ({ data }) => {
-      await setAuth(data.data.user, data.data.token)
+      await setAuth(data.data.user, data.data.access_token)
     },
   })
 }

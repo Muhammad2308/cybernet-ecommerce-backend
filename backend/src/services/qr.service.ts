@@ -5,7 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rido_dev_secret_change_in_producti
 export interface QRPayloadData {
   delivery_id: string
   receiver_id: string
-  timestamp: string
+  expires_at: string
   signature: string
 }
 
@@ -18,9 +18,9 @@ export function generateUniquePickupId(): string {
   return result
 }
 
-export function generateReceiverQRPayload(deliveryId: string, receiverId: string): string {
-  const timestamp = new Date().toISOString()
-  const dataToSign = `${deliveryId}:${receiverId}:${timestamp}`
+export function generateReceiverQRPayload(deliveryId: string, receiverId: string, expiresAt: Date): string {
+  const expires_at = expiresAt.toISOString()
+  const dataToSign = `${deliveryId}:${receiverId}:${expires_at}`
   const signature = crypto
     .createHmac('sha256', JWT_SECRET)
     .update(dataToSign)
@@ -29,7 +29,7 @@ export function generateReceiverQRPayload(deliveryId: string, receiverId: string
   const payloadObj: QRPayloadData = {
     delivery_id: deliveryId,
     receiver_id: receiverId,
-    timestamp,
+    expires_at,
     signature,
   }
 
@@ -41,18 +41,22 @@ export function verifyQRPayload(encodedPayload: string): { valid: boolean; data?
     const jsonStr = Buffer.from(encodedPayload, 'base64url').toString('utf-8')
     const data: QRPayloadData = JSON.parse(jsonStr)
 
-    if (!data.delivery_id || !data.receiver_id || !data.timestamp || !data.signature) {
+    if (!data.delivery_id || !data.receiver_id || !data.expires_at || !data.signature) {
       return { valid: false, error: 'Malformed QR code payload' }
     }
 
-    const dataToSign = `${data.delivery_id}:${data.receiver_id}:${data.timestamp}`
+    const dataToSign = `${data.delivery_id}:${data.receiver_id}:${data.expires_at}`
     const expectedSignature = crypto
       .createHmac('sha256', JWT_SECRET)
       .update(dataToSign)
       .digest('hex')
 
-    if (data.signature !== expectedSignature) {
+    if (data.signature.length !== expectedSignature.length || !crypto.timingSafeEqual(Buffer.from(data.signature), Buffer.from(expectedSignature))) {
       return { valid: false, error: 'Invalid QR code signature or tampered code' }
+    }
+
+    if (new Date(data.expires_at).getTime() <= Date.now()) {
+      return { valid: false, error: 'QR code has expired' }
     }
 
     return { valid: true, data }
