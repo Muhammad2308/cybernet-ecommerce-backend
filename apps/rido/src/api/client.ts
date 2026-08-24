@@ -1,7 +1,10 @@
 import axios from 'axios'
 import { storage } from '../utils/storage'
 
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'
+export const BASE_URL = /^https?:\/\//i.test(configuredApiUrl)
+  ? configuredApiUrl.replace(/\/$/, '')
+  : `https://${configuredApiUrl}`
 
 export const apiClient = axios.create({
   baseURL: `${BASE_URL}/api/rido/v1`,
